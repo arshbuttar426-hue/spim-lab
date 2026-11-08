@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SPIM — move a note to the device in your hand</title>
+<meta name="description" content="Type a note, press one button, and the device across the room hears it. No account, no upload, no cable.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F2EEE4;
+    --paper-2:#EAE5D8;
+    --ink:#15140F;
+    --ink-soft:#3B382F;
+    --muted:#6E6858;
+    --rule:#D5CEBD;
+    --rule-strong:#B9B1A0;
+    --accent:#C8351A;
+    --accent-ink:#F7F4EC;
+    --nav-h:60px;
+    --gutter:32px;
+    --serif:'Instrument Serif',Georgia,'Times New Roman',serif;
+    --sans:'IBM Plex Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  }
+
+  *,*::before,*::after{box-sizing:border-box}
+  html{scroll-padding-top:calc(var(--nav-h) + 16px);-webkit-text-size-adjust:100%}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:16px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--accent);color:var(--accent-ink)}
+  a{color:inherit;text-decoration:none}
+  button,input,textarea{font:inherit;color:inherit}
+  img,svg{display:block;max-width:100%}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+  .label{
+    font-family:var(--mono);
+    font-size:11px;
+    line-height:1;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  /* ---------- top bar ---------- */
+  .top{
+    position:sticky;top:0;z-index:20;
+    height:var(--nav-h);
+    border-bottom:1px solid var(--rule);
+    background:var(--paper);
+  }
+  .top-inner{
+    max-width:1320px;margin:0 auto;height:100%;
+    padding:0 var(--gutter);
+    display:flex;align-items:center;gap:28px;
+  }
+  .mark{
+    display:flex;align-items:baseline;gap:9px;
+    font-family:var(--mono);font-size:15px;font-weight:500;
+    letter-spacing:.22em;
+  }
+  .mark sup{
+    font-size:9px;letter-spacing:.08em;color:var(--muted);
+    transform:translateY(-2px);
+  }
+  .top-nav{display:flex;gap:26px;margin-left:auto}
+  .top-nav a{
+    font-family:var(--mono);font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ink-soft);
+    padding:8px 0;position:relative;
+  }
+  .top-nav a::after{
+    content:'';position:absolute;left:0;right:100%;bottom:0;
+    height:1px;background:var(--accent);transition:right .18s ease;
+  }
+  .top-nav a:hover::after{right:0}
+  .top-cta{
+    display:inline-flex;align-items:center;height:34px;
+    padding:0 14px;border:1px solid var(--ink);
+    font-family:var(--mono);font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;white-space:nowrap;
+    transition:background .15s ease,color .15s ease;
+  }
+  .top-cta:hover{background:var(--ink);color:var(--paper)}
+  .top-toggle{display:none}
+
+  /* ---------- page frame ---------- */
+  .frame{
+    max-width:1320px;margin:0 auto;
+    padding:0 var(--gutter);
+    display:grid;grid-template-columns:64px minmax(0,1fr);
+  }
+  .rail{
+    border-right:1px solid var(--rule);
+    padding:28px 0 0;
+    position:relative;
+  }
+  .rail span{
+    position:sticky;top:calc(var(--nav-h) + 28px);
+    display:block;
+    writing-mode:vertical-rl;
+    transform:rotate(180deg);
+    font-family:var(--mono);font-size:10px;letter-spacing:.3em;
+    text-transform:uppercase;color:var(--muted);
+  }
+  .body-col{min-width:0;padding-left:clamp(20px,4vw,64px)}
+
+  /* ---------- hero ---------- */
+  .hero{
+    padding:clamp(40px,7vw,86px) 0 clamp(32px,5vw,56px);
+    border-bottom:1px solid var(--rule);
+    display:grid;
+    grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);
+    gap:clamp(24px,4vw,56px);
+    align-items:end;
+  }
+  .hero h1{
+    margin:0;
+    font-family:var(--serif);
+    font-weight:400;
+    font-size:clamp(44px,6.4vw,96px);
+    line-height:.96;
+    letter-spacing:-.015em;
+    text-wrap:balance;
+  }
+  .hero h1 em{font-style:italic;color:var(--accent)}
+  .hero-side{padding-bottom:8px}
+  .hero-side p{
+    margin:0 0 18px;
+    max-width:38ch;
+    color:var(--ink-soft);
+    font-size:clamp(15px,1.35vw,17px);
+  }
+  .spec{
+    display:grid;grid-template-columns:auto 1fr;gap:6px 14px;
+    font-family:var(--mono);font-size:11px;color:var(--muted);
+    border-top:1px solid var(--rule);padding-top:12px;
+  }
+  .spec b{font-weight:500;color:var(--ink);letter-spacing:.02em}
+
+  /* ---------- instrument ---------- */
+  .instrument{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    border-bottom:1px solid var(--rule);
+  }
+  .panel{
+    padding:clamp(20px,2.6vw,32px) clamp(18px,2.2vw,28px) clamp(20px,2.6vw,32px) 0;
+    min-width:0;
+  }
+  .panel + .panel{
+    border-left:1px solid var(--rule);
+    padding-left:clamp(18px,2.2vw,28px);
+    padding-right:0;
+  }
+  .panel-head{
+    display:flex;align-items:baseline;gap:12px;
+    margin-bottom:16px;
+  }
+  .panel-head .num{
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+    color:var(--accent);
+  }
+  .panel-head h2{
+    margin:0;font-family:var(--mono);font-size:11px;font-weight:500;
+    letter-spacing:.18em;text-transform:uppercase;
+  }
+  .panel-head .state{
+    margin-left:auto;font-family:var(--mono);font-size:10px;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+  }
+  .state.is-live{color:var(--accent)}
+
+  .field{position:relative}
+  .field textarea{
+    display:block;width:100%;
+    min-height:132px;resize:vertical;
+    padding:2px 0;
+    border:0;border-bottom:1px solid var(--rule-strong);
+    background:transparent;
+    font-family:var(--serif);
+    font-size:clamp(22px,2.2vw,28px);
+    line-height:1.35;
+    color:var(--ink);
+  }
+  .field textarea::placeholder{color:#A8A18F;font-style:italic}
+  .field textarea:focus{outline:none;border-bottom-color:var(--accent)}
+
+  .meter{
+    display:flex;align-items:center;gap:16px;
+    margin-top:12px;
+    font-family:var(--mono);font-size:11px;color:var(--muted);
+    min-height:16px;
+  }
+  .meter .air{color:var(--ink-soft)}
+  .meter .warn{color:var(--accent)}
+
+  .actions{display:flex;align-items:center;gap:14px;margin-top:18px;flex-wrap:wrap}
+  .beam-btn{
+    display:inline-flex;align-items:center;gap:12px;
+    height:44px;padding:0 20px;
+    border:1px solid var(--ink);
+    background:var(--ink);color:var(--paper);
+    font-family:var(--mono);font-size:12px;letter-spacing:.12em;
+    text-transform:uppercase;
+    cursor:pointer;
+    transition:background .15s ease,color .15s ease,opacity .15s ease;
+  }
+  .beam-btn:hover:not(:disabled){background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  .beam-btn:disabled{opacity:.285;cursor:not-allowed}
+  .beam-btn .arrow{transition:transform .18s ease}
+  .beam-btn:hover:not(:disabled) .arrow{transform:translateX(3px)}
+  .ghost-btn{
+    height:34px;padding:0 2px;border:0;background:none;
+    border-bottom:1px solid transparent;
+    font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);cursor:pointer;
+  }
+  .ghost-btn:hover{color:var(--ink);border-bottom-color:var(--ink)}
+
+  /* waveform */
+  .wave-wrap{
+    margin-top:18px;
+    border:1px solid var(--rule);
+    background:var(--paper-2);
+    position:relative;
+  }
+  .wave-wrap canvas{display:block;width:100%;height:96px}
+  .wave-meta{
+    display:flex;justify-content:space-between;gap:12px;
+    padding:7px 10px;border-top:1px solid var(--rule);
+    font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+    color:var(--muted);text-transform:uppercase;
+  }
+
+  /* receiver */
+  .rx{
+    min-height:132px;
+    display:flex;flex-direction:column;justify-content:center;
+    border-bottom:1px solid var(--rule-strong);
+  }
+  .rx-empty{
+    font-family:var(--serif);font-size:clamp(20px,2vw,24px);
+    font-style:italic;color:#A8A18F;
+  }
+  .rx-text{
+    font-family:var(--serif);
+    font-size:clamp(22px,2.2vw,28px);
+    line-height:1.35;
+    white-space:pre-wrap;
+    overflow-wrap:anywhere;
+    max-height:196px;overflow:auto;
+  }
+  .rx-foot{
+    display:flex;align-items:center;gap:16px;
+    margin-top:12px;min-height:16px;
+    font-family:var(--mono);font-size:11px;color:var(--muted);
+  }
+  .rx-foot .stamp{color:var(--accent)}
+  .rx-actions{display:flex;gap:14px;margin-top:18px;min-height:44px;align-items:center}
+
+  .bars{display:inline-flex;align-items:flex-end;gap:3px;height:12px}
+  .bars i{
+    width:2px;background:var(--rule-strong);
+    height:3px;transform-origin:bottom;
+  }
+  .bars.is-live i{background:var(--accent);animation:bar .9s ease-in-out infinite}
+  .bars.is-live i:nth-child(2){animation-delay:.12s}
+  .bars.is-live i:nth-child(3){animation-delay:.24s}
+  .bars.is-live i:nth-child(4){animation-delay:.36s}
+  @keyframes bar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(2.6)}}
+
+  /* ---------- delivery rows ---------- */
+  .ways{padding:clamp(40px,6vw,72px) 0 clamp(28px,4vw,48px)}
+  .ways-head{
+    display:flex;align-items:baseline;gap:16px;
+    margin-bottom:8px;
+  }
+  .ways-head h2{
+    margin:0;font-family:var(--serif);font-size:clamp(26px,3vw,38px);
+    font-weight:400;letter-spacing:-.01em;
+  }
+  .ways-head .num{font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:.1em}
+  .ways-head p{margin:0;color:var(--muted);font-size:14px;max-width:44ch;margin-left:auto}
+
+  .way{
+    display:grid;
+    grid-template-columns:56px 168px minmax(0,1fr) auto;
+    gap:clamp(12px,3vw,40px);
+    align-items:baseline;
+    padding:18px 0;
+    border-top:1px solid var(--rule);
+    transition:background .15s ease;
+  }
+  .way:last-child{border-bottom:1px solid var(--rule)}
+  .way:hover{background:rgba(21,20,15,.028)}
+  .way .n{font-family:var(--mono);font-size:10px;color:var(--muted)}
+  .way h3{
+    margin:0;font-family:var(--mono);font-size:12px;font-weight:500;
+    letter-spacing:.14em;text-transform:uppercase;
+  }
+  .way p{margin:0;color:var(--ink-soft);font-size:14.5px;max-width:52ch}
+  .way .time{
+    font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+    color:var(--muted);text-transform:uppercase;white-space:nowrap;
+  }
+
+  /* ---------- close ---------- */
+  .close{
+    border-top:1px solid var(--rule);
+    padding:clamp(36px,5vw,64px) 0 clamp(40px,6vw,80px);
+    display:grid;grid-template-columns:minmax(0,1fr) auto;
+    gap:24px;align-items:end;
+  }
+  .close h2{
+    margin:0;font-family:var(--serif);font-weight:400;
+    font-size:clamp(28px,4.4vw,56px);line-height:1.02;
+    letter-spacing:-.01em;max-width:16ch;
+  }
+  .close .fine{
+    font-family:var(--mono);font-size:11px;line-height:1.9;
+    color:var(--muted);text-align:right;
+  }
+  .close .fine a{border-bottom:1px solid var(--rule-strong)}
+  .close .fine a:hover{border-bottom-color:var(--accent)}
+
+  /* ---------- mobile ---------- */
+  @media (max-width:900px){
+    :root{--gutter:20px}
+    .frame{grid-template-columns:1fr}
+    .rail{display:none}
+    .body-col{padding-left:0}
+    .hero{grid-template-columns:1fr;gap:28px;align-items:start}
+    .instrument{grid-template-columns:1fr}
+    .panel + .panel{border-left:0;border-top:1px solid var(--rule);padding-left:0}
+    .ways-head{flex-wrap:wrap}
+    .ways-head p{margin-left:0;width:100%}
+    .way{grid-template-columns:34px minmax(0,1fr);gap:8px 14px;padding:20px 0}
+    .way h3,.way p,.way .time{grid-column:2}
+    .way .time{margin-top:2px}
+    .close{grid-template-columns:1fr}
+    .close .fine{text-align:left}
+  }
+  @media (max-width:620px){
+    .top-nav{display:none}
+    .top-cta{margin-left:auto}
+    .top-inner{gap:16px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001ms !important;transition-duration:.001ms !important}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <a class="mark" href="#" aria-label="SPIM home">SPIM<sup>01</sup></a>
+    <nav class="top-nav" aria-label="Primary">
+      <a href="#instrument">Try it</a>
+      <a href="#ways">How it travels</a>
+    </nav>
+    <a class="top-cta" href="#instrument">Open a capsule</a>
+  </div>
+</header>
+
+<div class="frame">
+  <aside class="rail" aria-hidden="true">
+    <span>Transmit · Receive · Repeat</span>
+  </aside>
+
+  <div class="body-col">
+
+    <section class="hero">
+      <h1>Move a note to the device in your&nbsp;hand.</h1>
+      <div class="hero-side">
+        <p>Type it here, press one button, and the phone across the room hears it. No account, no upload, no cable.</p>
+        <div class="spec">
+          <span>Carrier</span><b>21–23 kHz</b>
+          <span>Payload</span><b>text, image, link</b>
+          <span>Account</span><b>not required</b>
+        </div>
+      </div>
+    </section>
+
+    <section class="instrument" id="instrument" aria-labelledby="inst-title">
+      <h2 id="inst-title" class="label" style="position:absolute;left:-9999px">Beam a note</h2>
+
+      <!-- transmit -->
+      <div class="panel">
+        <div class="panel-head">
+          <span class="num">01</span>
+          <h2>Transmit</h2>
+          <span class="state" id="txState">idle</span>
+        </div>
+
+        <div class="field">
+          <label for="txInput" class="label" style="display:block;margin-bottom:8px">Your note</label>
+          <textarea id="txInput" spellcheck="false" placeholder="Meet me at six."></textarea>
+        </div>
+
+        <div class="meter">
+          <span id="txChars">0 characters</span>
+          <span aria-hidden="true">·</span>
+          <span class="air" id="txAir">0.0 s on air</span>
+        </div>
+
+        <div class="actions">
+          <button class="beam-btn" id="beamBtn" type="button" disabled>
+            Beam it <span class="arrow" aria-hidden="true">→</span>
+          </button>
+          <button class="ghost-btn" id="exampleBtn" type="button">Use an example</button>
+        </div>
+
+        <div class="wave-wrap">
+          <canvas id="wave" width="720" height="96" role="img" aria-label="Waveform of the note being transmitted"></canvas>
+          <div class="wave-meta">
+            <span id="waveState">carrier idle</span>
+            <span id="waveRate">100 bps</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- receive -->
+      <div class="panel">
+        <div class="panel-head">
+          <span class="num">02</span>
+          <h2>Receive</h2>
+          <span class="state" id="rxState">
+            <span class="bars" id="rxBars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <span id="rxLabel">listening</span>
+          </span>
+        </div>
+
+        <div class="rx" aria-live="polite">
+          <div class="rx-empty" id="rxEmpty">Waiting for a chirp.</div>
+          <div class="rx-text" id="rxText" hidden></div>
+        </div>
+
+        <div class="rx-foot">
+          <span id="rxStamp">microphone open</span>
+        </div>
+
+        <div class="rx-actions">
+          <button class="ghost-btn" id="copyBtn" type="button" hidden>Copy text</button>
+          <button class="ghost-btn" id="clearBtn" type="button" hidden>Clear</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="ways" id="ways">
+      <div class="ways-head">
+        <span class="num">03</span>
+        <h2>Five ways a capsule can leave</h2>
+        <p>Sound is one. The other four work when the room is loud, the phone is in a pocket, or the two devices are years apart.</p>
+      </div>
+
+      <div class="way">
+        <span class="n">3.1</span>
+        <h3>Link</h3>
+        <p>A URL that opens the note in any browser. The receiver needs nothing installed.</p>
+        <span class="time">any distance</span>
+      </div>
+      <div class="way">
+        <span class="n">3.2</span>
+        <h3>QR</h3>
+        <p>A square you can scan across a table. Good for a screen that stays still.</p>
+        <span class="time">arm's length</span>
+      </div>
+      <div class="way">
+        <span class="n">3.3</span>
+        <h3>File</h3>
+        <p>A <code>.spim</code> file you can keep on a disk, mail, or hand over on a stick.</p>
+        <span class="time">offline</span>
+      </div>
+      <div class="way">
+        <span class="n">3.4</span>
+        <h3>Dock</h3>
+        <p>Two tabs in the same browser, passing notes with no network in between.</p>
+        <span class="time">same machine</span>
+      </div>
+      <div class="way">
+        <span class="n">3.5</span>
+        <h3>Sound</h3>
+        <p>A chirp between 21 and 23 kHz. Most of the room hears nothing; a microphone does.</p>
+        <span class="time">one room</span>
+      </div>
+    </section>
+
+    <section class="close" id="close">
+      <h2>Open a capsule, or send one.</h2>
+      <div class="fine">
+        <div>SPIM is built by Primaas.</div>
+        <div><a href="#instrument">Try the transmitter</a> · <a href="#ways">Read the five routes</a></div>
+        <div style="margin-top:10px;color:var(--rule-strong)">Demo runs in this tab. Nothing is uploaded.</div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var ta        = document.getElementById('txInput');
+  var beamBtn   = document.getElementById('beamBtn');
+  var exampleBtn= document.getElementById('exampleBtn');
+  var txChars   = document.getElementById('txChars');
+  var txAir     = document.getElementById('txAir');
+  var txState   = document.getElementById('txState');
+  var waveState = document.getElementById('waveState');
+  var waveRate  = document.getElementById('waveRate');
+  var canvas    = document.getElementById('wave');
+  var ctx       = canvas.getContext('2d');
+  var rxState   = document.getElementById('rxState');
+  var rxLabel   = document.getElementById('rxLabel');
+  var rxBars    = document.getElementById('rxBars');
+  var rxEmpty   = document.getElementById('rxEmpty');
+  var rxText    = document.getElementById('rxText');
+  var rxStamp   = document.getElementById('rxStamp');
+  var copyBtn   = document.getElementById('copyBtn');
+  var clearBtn  = document.getElementById('clearBtn');
+
+  var SAMPLE_RATE = 48000;
+  var SYMBOL      = 480;              // samples per symbol
+  var BIT_SECONDS = SYMBOL / SAMPLE_RATE;  // 10 ms
+  var IDLE_AMPLITUDE = 0.16;
+
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var state = {
+    bits: [],
+    airtime: 0,
+    playing: false,
+    progress: 0,
+    frame: 0
+  };
+
+  function measure(text){
+    var bytes = new TextEncoder().encode(text);
+    return { bytes: bytes.length, bits: bytes.length * 8, airtime: bytes.length * 8 * BIT_SECONDS };
+  }
+
+  function bitsOf(text){
+    var bytes = new TextEncoder().encode(text);
+    var out = [];
+    for (var i = 0; i < bytes.length; i++){
+      for (var b = 7; b >= 0; b--) out.push((bytes[i] >> b) & 1);
+    }
+    return out;
+  }
+
+  function fmt(n){ return (Math.round(n * 10) / 10).toFixed(1); }
+
+  /* ---- canvas ---- */
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  function sizeCanvas(){
+    var rect = canvas.getBoundingClientRect();
+    canvas.width  = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw(state.progress);
+  }
+
+  function draw(progress){
+    var w = canvas.clientWidth;
+    var h = canvas.clientHeight;
+    if (!w || !h) return;
+
+    ctx.clearRect(0, 0, w, h);
+    var mid = h / 2;
+
+    // baseline
+    ctx.strokeStyle = 'rgba(21,20,15,.18)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, mid + 0.5);
+    ctx.lineTo(w, mid + 0.5);
+    ctx.stroke();
+
+    var bits = state.bits;
+
+    if (!bits.length){
+      // strip-chart ticks: the carrier is up, nothing is modulated
+      ctx.strokeStyle = 'rgba(21,20,15,.14)';
+      for (var t = 0; t < w; t += 24){
+        ctx.beginPath();
+        ctx.moveTo(t + 0.5, mid - (t % 96 === 0 ? 7 : 3));
+        ctx.lineTo(t + 0.5, mid + (t % 96 === 0 ? 7 : 3));
+        ctx.stroke();
+      }
+      return;
+    }
+    var pxPerSym = bits.length ? Math.max(1.6, w / bits.length) : 6;
+
+    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = progress > 0 ? '#C8351A' : 'rgba(21,20,15,.42)';
+    if (progress > 0){
+      ctx.strokeStyle = 'rgba(21,20,15,.28)';
+    }
+
+    // full trace faint
+    traceWave(bits, pxPerSym, mid, h, progress >= 1 ? 1 : IDLE_AMPLITUDE * (progress > 0 ? 1 : 1), 'rgba(21,20,15,.24)');
+
+    if (progress > 0){
+      ctx.strokeStyle = '#C8351A';
+      traceWave(bits, pxPerSym, mid, h, 1, '#C8351A', progress);
+      // playhead
+      var x = Math.min(w, progress * w);
+      ctx.strokeStyle = 'rgba(200,53,26,.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, h); ctx.stroke();
+    }
+  }
+
+  function traceWave(bits, pxPerSym, mid, h, amp, colour, limit){
+    if (!bits.length) return;
+    var w = canvas.clientWidth;
+    var maxX = limit == null ? w : Math.min(w, limit * w);
+    var phase = 0;
+    var highCycles = 5.2, lowCycles = 3.1;
+    var step = (2 * Math.PI) / pxPerSym;
+
+    ctx.strokeStyle = colour;
+    ctx.beginPath();
+    for (var x = 0; x < maxX; x++){
+      var idx = Math.min(bits.length - 1, Math.floor(x / pxPerSym));
+      var cycles = bits[idx] ? highCycles : lowCycles;
+      phase += step * (cycles / 2.6);
+      var a = (h * 0.34) * amp;
+      var y = mid + Math.sin(phase) * a;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  /* ---- meter ---- */
+  function syncMeter(){
+    var text = ta.value;
+    var m = measure(text);
+    txChars.textContent = m.bytes + (m.bytes === 1 ? ' byte' : ' bytes');
+    txAir.textContent = m.bytes ? fmt(m.airtime) + ' s on air' : '0.0 s on air';
+    waveRate.textContent = Math.round(1 / BIT_SECONDS) + ' bps';
+    state.bits = bitsOf(text);
+    state.airtime = m.airtime;
+    beamBtn.disabled = m.bytes === 0 || state.playing;
+    if (!state.playing) draw(0);
+  }
+
+  /* ---- beam ---- */
+  var rafId = 0;
+  function beam(){
+    var text = ta.value;
+    if (!text || state.playing) return;
+
+    state.playing = true;
+    state.progress = 0;
+    beamBtn.disabled = true;
+    txState.textContent = 'on air';
+    txState.classList.add('is-live');
+    waveState.textContent = 'modulating';
+    rxState.classList.add('is-live');
+    rxBars.classList.add('is-live');
+    rxLabel.textContent = 'hearing';
+    rxEmpty.textContent = 'Hearing a chirp…';
+
+    var real = Math.max(0.45, state.airtime);
+    var shown = reduced ? Math.min(real, 0.5) : Math.min(real, 2.6);
+    var speed = real > shown ? (real / shown) : 1;
+    waveState.textContent = speed > 1.05 ? 'preview at ' + fmt(speed) + '×' : 'modulating';
+
+    var start = performance.now();
+    var duration = shown * 1000;
+
+    function step(now){
+      var t = Math.min(1, (now - start) / duration);
+      state.progress = t;
+      draw(t);
+      if (t < 1){
+        rafId = requestAnimationFrame(step);
+      } else {
+        finishBeam(text, real);
+      }
+    }
+    rafId = requestAnimationFrame(step);
+  }
+
+  function finishBeam(text, real){
+    state.playing = false;
+    state.progress = 1;
+    txState.textContent = 'sent';
+    txState.classList.remove('is-live');
+    waveState.textContent = 'carrier idle';
+    rxState.classList.remove('is-live');
+    rxBars.classList.remove('is-live');
+    rxLabel.textContent = 'caught';
+
+    rxEmpty.hidden = true;
+    rxText.hidden = false;
+    rxText.textContent = text;
+    var m = measure(text);
+    rxStamp.textContent = 'caught in ' + fmt(real) + ' s · ' + m.bytes + ' bytes';
+    rxStamp.className = 'stamp';
+    copyBtn.hidden = false;
+    clearBtn.hidden = false;
+
+    beamBtn.disabled = ta.value.length === 0;
+    window.setTimeout(function(){ draw(1); }, 0);
+  }
+
+  /* ---- events ---- */
+  ta.addEventListener('input', function(){
+    if (!state.playing) state.progress = 0;
+    syncMeter();
+  });
+
+  beamBtn.addEventListener('click', beam);
+
+  exampleBtn.addEventListener('click', function(){
+    ta.value = 'Meet me at six.';
+    syncMeter();
+    ta.focus();
+  });
+
+  copyBtn.addEventListener('click', function(){
+    var t = rxText.textContent || '';
+    if (!t) return;
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(function(){
+        copyBtn.textContent = 'Copied';
+        window.setTimeout(function(){ copyBtn.textContent = 'Copy text'; }, 1400);
+      });
+    }
+  });
+
+  clearBtn.addEventListener('click', function(){
+    rxText.textContent = '';
+    rxText.hidden = true;
+    rxEmpty.hidden = false;
+    rxEmpty.textContent = 'Waiting for a chirp.';
+    rxStamp.textContent = 'microphone open';
+    rxStamp.className = '';
+    rxLabel.textContent = 'listening';
+    copyBtn.hidden = true;
+    clearBtn.hidden = true;
+    state.progress = 0;
+    draw(0);
+    ta.focus();
+  });
+
+  window.addEventListener('resize', sizeCanvas);
+  sizeCanvas();
+  syncMeter();
+})();
+</script>
+</body>
+</html>
